@@ -74,6 +74,11 @@ jobs:
           git commit -am "CI: Update gl4es"
           git push
           
+      - name: Fetch Prebuilt JRE Component
+        run: |
+          # Download it into the repo root directory
+          curl -L -o ./jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre8-v8_u242-ios-arm64.tar.xz"
+
       
       - name: Build for ${{ matrix.platform_name }}
         env:
