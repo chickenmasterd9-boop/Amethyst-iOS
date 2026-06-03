@@ -81,6 +81,7 @@ jobs:
         run: |
           brew install make
           brew install --cask temurin@8
+          brew install ldid dpkg pkg-config
           export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export RUNNER=1
           export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
