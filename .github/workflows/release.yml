@@ -76,8 +76,13 @@ jobs:
           
       - name: Fetch Prebuilt JRE Component
         run: |
-          # Download it into the repo root directory
-          curl -L -o ./jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre8-v8_u242-ios-arm64.tar.xz"
+          # Download the source artifact to the root
+          curl -L -o jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre8-v8_u242-ios-arm64.tar.xz"
+          
+          # Duplicate it into the build paths where gmake might look for it
+          mkdir -p Natives/build
+          cp jre8-ios-arm64.tar.xz Natives/build/
+          cp jre8-ios-arm64.tar.xz Natives/
 
       
       - name: Build for ${{ matrix.platform_name }}
