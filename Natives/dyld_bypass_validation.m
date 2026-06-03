@@ -232,7 +232,7 @@ void init_bypassDyldLibValidation() {
         if (DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED | JIT_FLAG_HAS_TXM)) {
             NSDebugLog(@"[DyldLVBypass] Using redirectFunctionMirrored");
             redirectFunction = redirectFunctionMirrored;
-        } elseif (DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED)){
+        } else if (DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED)){
             NSDebugLog(@"[DyldLVBypass] Using redirectFunctionHWBreakpoint");
             redirectFunction = redirectFunctionHWBreakpoint;
         } else {
@@ -241,7 +241,7 @@ void init_bypassDyldLibValidation() {
         }
     } else { 
         NSDebugLog(@"[DyldLVBypass] Using redirectFunctionDirect");
-        redirectFunction = redirectFunctionDirect
+        redirectFunction = redirectFunctionDirect;
     }
     
     // Modifying exec page during execution may cause SIGBUS, so ignore it now
