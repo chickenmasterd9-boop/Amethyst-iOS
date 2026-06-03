@@ -88,18 +88,28 @@ jobs:
       - name: Build for ${{ matrix.platform_name }}
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
-        run: |
+         run: |
             brew install make
             brew install --cask temurin@8
             brew install ldid dpkg pkg-config
-          
-            # Ensure the target folder exists
+            
+            export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
+            export RUNNER=1
+            
+            # 1. Run standard cleaning steps first
+            gmake clean
+            
+            # 2. Re-create the folder and instantly fetch the files safely
             mkdir -p JavaApp
-          
-            # Automatically pull the verified runtimes straight from the server
-            curl -L -o JavaApp/jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre8-40df388/jre8-arm64-20220811-release.tar.xz"
-            curl -L -o JavaApp/jre17-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre8-40df388/jre8-arm64-20220811-release.tar.xz"
-          
+            curl -L -o JavaApp/jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre8-ios-arm64.tar.xz"
+            curl -L -o JavaApp/jre17-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre17-ios-arm64.tar.xz"
+            
+            # 3. Explicitly execute the build steps sequentially
+            gmake dep_mg
+            gmake assets
+            gmake native
+            gmake java
+            gmake jre
             export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
             export RUNNER=1
             gmake
