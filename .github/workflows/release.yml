@@ -84,49 +84,45 @@ jobs:
           cp jre8-ios-arm64.tar.xz Natives/build/
           cp jre8-ios-arm64.tar.xz Natives/
 
-      
       - name: Build for ${{ matrix.platform_name }}
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
-         run: |
-            brew install make
-            brew install --cask temurin@8
-            brew install ldid dpkg pkg-config
-            
-            export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
-            export RUNNER=1
-            
-            # 1. Run standard cleaning steps first
-            gmake clean
-            
-            # 2. Re-create the folder and instantly fetch the files safely
-            mkdir -p JavaApp
-            curl -L -o JavaApp/jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre8-ios-arm64.tar.xz"
-            curl -L -o JavaApp/jre17-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre17-ios-arm64.tar.xz"
-            
-            # 3. Explicitly execute the build steps sequentially
-            gmake dep_mg
-            gmake assets
-            gmake native
-            gmake java
-            gmake jre
-            export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
-            export RUNNER=1
-            gmake
-  
-            export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
-            export RUNNER=1
-            if [ "${{ matrix.platform_name }}" == "ios" ]; then
-              # Build ipa and tipa for iOS
-              gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
-              gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
-            elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
-              # Build tipa only for tvOS
-              gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
-            else
-              # Build ipa only for everything else
-              gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
-            fi
+        run: |
+          brew install make
+          brew install --cask temurin@8
+          brew install ldid dpkg pkg-config
+          
+          # Maintain standard Homebrew GNU-make pathways throughout the run execution
+          export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
+          export RUNNER=1
+          
+          # 1. Run standard cleaning steps first
+          gmake clean
+          
+          # 2. Re-create the folder and instantly fetch the files safely
+          mkdir -p JavaApp
+          curl -L -o JavaApp/jre8-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre8-ios-arm64.tar.xz"
+          curl -L -o JavaApp/jre17-ios-arm64.tar.xz "https://github.com/PojavLauncherTeam/PojavLauncher_iOS/releases/download/v2.1/jre17-ios-arm64.tar.xz"
+          
+          # 3. Explicitly execute the build steps sequentially
+          gmake dep_mg
+          gmake assets
+          gmake native
+          gmake java
+          gmake jre
+          
+          # 4. Final Packaging routine block
+          if [ "${{ matrix.platform_name }}" == "ios" ]; then
+            # Build ipa and tipa for iOS
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+          elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
+            # Build tipa only for tvOS
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+          else
+            # Build ipa only for everything else
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+          fi
 
       - name: Upload regular ipa
         uses: actions/upload-artifact@main
