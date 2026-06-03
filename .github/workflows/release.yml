@@ -80,6 +80,9 @@ jobs:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
         run: |
           brew install make
+          export PATH=/opt/procursus/bin:/opt/homebrew/bin:/opt homebrew/opt/make/libexec/gnubin:$PATH
+          export RUNNER=1
+          brew install make
           export PATH=/opt/procursus/bin:/opt/homebrew/bin:/opt/homebrew/opt/make/libexec/gnubin:$PATH
           export RUNNER=1
           export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
