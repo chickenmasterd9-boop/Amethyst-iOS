@@ -23,12 +23,28 @@
 #include "utils.h"
 #include "codesign.h"
 
+
 #define CS_PLATFORM_BINARY 0x4000000
 #define PT_TRACE_ME 0
 #define PT_DETACH 11 
 int ptrace(int, pid_t, caddr_t, int);
 #define fm NSFileManager.defaultManager
 extern char** environ;
+
+#import <UIKit/UIKit.h>
+#import "AppDelegate.h"
+
+// Put the workaround stub here so the linker can find it globally
+BOOL _UISolariumEnabled(void) { 
+    return NO; 
+}
+
+int main(int argc, char * argv[]) {
+    @autoreleasepool {
+        return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+    }
+}
+
 
 void printEntitlementAvailability(NSString *key) {
     NSLog(@"* %@: %@", key, getEntitlementValue(key) ? @"YES" : @"NO");
