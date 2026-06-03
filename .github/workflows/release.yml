@@ -92,6 +92,8 @@ jobs:
           brew install make
           brew install --cask temurin@8
           brew install ldid dpkg pkg-config
+          touch jre8-custom.tar.xz jre17-custom.tar.xz jre21-custom.tar.xz
+          touch jre8-ios-arm64.tar.xz jre17-ios-arm64.tar.xz jre21-ios-arm64.tar.xz
           export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export RUNNER=1
           export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
