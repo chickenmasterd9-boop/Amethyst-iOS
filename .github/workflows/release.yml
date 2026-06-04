@@ -12,61 +12,93 @@ jobs:
         include:
           - platform: 2
             platform_name: ios
+          - platform: 3
+            platform_name: tvos
 
     runs-on: macos-15
     steps:
-      - name: Checkout Codebase
+      - name: Clean Build Workspace Context
+        env:
+          password: ${{ secrets.ELLIE_MINI_SECRET }}
+        run: |
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          
+      - name: Checkout Codebase Storage
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Provision Homebrew Packages
+      - name: Sync Git Submodule References
+        run: |
+          git submodule init
+          git submodule update --recursive
+
+      - name: Provision Homebrew Compilation Tools
         run: |
           brew install make ldid dpkg pkg-config
-          # Enforce proper path resolution priorities for the compiler toolchains
+          # Force provision the exact Zulu/Temurin 8 runtime path via system casks
+          brew install --cask temurin@8
+          
+          # Prioritize GNU Make over the generic macOS system framework
           echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
-      - name: Setup Java Native Compiler Development Kit
-        uses: actions/setup-java@v4
+      - name: Fetch Remote Framework Dependencies
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build.yml
+          path: depends
+          workflow_conclusion: success
+          repo: PojavLauncherTeam/android-openjdk-build-multiarch
+          branch: buildjre8
+          name: jre8-ios-aarch64
 
-      - name: Build for ${ { matrix.platform_name } }
+      - name: Compile and Package Application Binary Target
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
           RUNNER: 1
         run: |
-          # 1. Execute required underlying codebase compilations sequentially
+          # 1. Hard-bind the environment path straight to the Homebrew Cask JDK 8 home directory
+          export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-8.jdk/Contents/Home
+          export PATH=$JAVA_HOME/bin:$PATH
+          
+          # 2. Build code prerequisites sequentially before passing to the assembly recipe
           gmake dep_mg
           gmake assets
           gmake native
           
-          # 2. Inject explicit target pathing to override empty byte stub check optimizations
+          # Fix modern compiler byte stub differences for legacy components
           mkdir -p JavaApp/build/classes/org/lwjgl/glfw/
           echo "" > JavaApp/build/classes/org/lwjgl/glfw/GLFWunctions.class
           
           gmake java
-          
-          # 3. Assemble application packages using local architecture definitions
-          gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
-          gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
 
-      - name: Upload Regular Distribution IPA
+          # 3. Process packaging matrices based on target definitions
+          if [ "${{ matrix.platform_name }}" == "ios" ]; then
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+          elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
+          else
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+          fi
+
+      - name: Archive Standard Distribution IPA Packages
         uses: actions/upload-artifact@v4
         with:
-          name: Amethyst-Standard-iOS
+          name: net.kdt.pojavlauncher-${{ matrix.platform_name }}-standard
           path: artifacts/*.ipa
 
-      - name: Upload TrollStore Distribution TIPA
+      - name: Archive TrollStore Distribution TIPA Packages
         uses: actions/upload-artifact@v4
         with:
-          name: Amethyst-TrollStore-iOS
+          name: net.kdt.pojavlauncher-${{ matrix.platform_name }}-trollstore
           path: artifacts/*.tipa
 
-      - name: Upload PojavLauncher Core Debug Symbols
+      - name: Archive Core Native Binary Debug Symbols
         uses: actions/upload-artifact@v4
+        if: matrix.platform_name == 'ios'
         with:
           name: PojavLauncher.dSYM
           path: artifacts/*.dSYM
