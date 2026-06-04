@@ -48,12 +48,13 @@ jobs:
           export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export RUNNER=1
           
-          # 2. Run compile targets sequentially
+          # 2. Run complete compile targets sequentially
           gmake dep_mg
+          gmake render
           gmake assets
           gmake native
           
-          # Force create the stub file to trick the verification rule if it turns up empty
+          # Prevent Java 17 empty-stub optimization crash
           mkdir -p JavaApp/build/classes/org/lwjgl/glfw/
           echo "" > JavaApp/build/classes/org/lwjgl/glfw/GLFWunctions.class
           
