@@ -85,15 +85,17 @@ jobs:
           # 1. Create the explicit dependency storage track
           mkdir -p depends
           
-          # 2. Use curl to pull down the exact authentic binaries straight to depends/
+          # 2. Pull down the authentic Java 8, Java 17, AND Java 21 binaries straight to depends/
           curl -L -o depends/jre8-arm64-20220811-release.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre8-40df388/jre8-arm64-20220811-release.tar.xz"
           curl -L -o depends/jre17-arm64-20220817-release.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre17-ca01427/jre17-arm64-20220817-release.tar.xz"
+          curl -L -o depends/jre21-arm64-20231019-release.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre21-5079a49/jre21-arm64-20231019-release.tar.xz"
           
           # 3. Mirror the files into fallback staging paths to satisfy all Makefile generation variants
           mkdir -p JavaApp Natives/build
           for dir in . JavaApp Natives Natives/build; do
             cp depends/jre8-arm64-20220811-release.tar.xz "$dir/" || true
             cp depends/jre17-arm64-20220817-release.tar.xz "$dir/" || true
+            cp depends/jre21-arm64-20231019-release.tar.xz "$dir/" || true
           done
 
       - name: Build for ${{ matrix.platform_name }}
