@@ -1,12 +1,11 @@
-name: Amethyst CI (Custom Build)
+name: Release build
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build for ${{ matrix.platform_name }}
-    runs-on: macos-15
+    name: Release build
     strategy:
       fail-fast: false
       matrix:
@@ -14,21 +13,19 @@ jobs:
           - platform: 2
             platform_name: ios
 
+    runs-on: macos-15
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Initialize Homebrew Cache Staging
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Caches/Homebrew
-            /opt/homebrew/Cellar
-          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/release.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-brew-
+      - name: Provision Homebrew Packages
+        run: |
+          brew install make ldid dpkg pkg-config
+          # Enforce proper path resolution priorities for the compiler toolchains
+          echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
       - name: Setup Java Native Compiler Development Kit
         uses: actions/setup-java@v4
@@ -36,46 +33,40 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build for ${{ matrix.platform_name }}
+      - name: Build for ${ { matrix.platform_name } }
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
+          RUNNER: 1
         run: |
-          # 1. Provision build tools
-          brew install make
-          brew install --cask temurin@8
-          brew install ldid dpkg pkg-config
-          
-          export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
-          export RUNNER=1
-          
-          # 2. Run complete compile targets sequentially
+          # 1. Execute required underlying codebase compilations sequentially
           gmake dep_mg
-          gmake render
           gmake assets
           gmake native
           
-          # Prevent Java 17 empty-stub optimization crash
+          # 2. Inject explicit target pathing to override empty byte stub check optimizations
           mkdir -p JavaApp/build/classes/org/lwjgl/glfw/
           echo "" > JavaApp/build/classes/org/lwjgl/glfw/GLFWunctions.class
           
           gmake java
           
-          # 3. Packaging rules based on matrix target parameters
-          if [ "${{ matrix.platform_name }}" == "ios" ]; then
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
-          elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
-          else
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
-          fi
+          # 3. Assemble application packages using local architecture definitions
+          gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+          gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
 
-      - name: Upload Compiled Distribution Artifacts
+      - name: Upload Regular Distribution IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Amethyst-${{ matrix.platform_name }}-Build
-          path: |
-            *.ipa
-            *.tipa
-            *.deb
-            Natives/build/*.dSYM
+          name: Amethyst-Standard-iOS
+          path: artifacts/*.ipa
+
+      - name: Upload TrollStore Distribution TIPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amethyst-TrollStore-iOS
+          path: artifacts/*.tipa
+
+      - name: Upload PojavLauncher Core Debug Symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: PojavLauncher.dSYM
+          path: artifacts/*.dSYM
