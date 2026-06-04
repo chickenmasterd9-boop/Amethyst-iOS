@@ -53,13 +53,17 @@ jobs:
           gmake assets
           gmake native
           
-          # 3. Direct Patch: Strip the empty class file validation rule entirely
-          # This forces JavaApp/Makefile to compile the target jars without running check_empty_classes
+          # 3. Direct Patch: Strip the empty class file validation rule from sub-makefile
           sed -i '' 's/check_empty_classes//g' JavaApp/Makefile
           
           gmake java
 
-          # 4. Process packaging loops based on target configuration
+          # 4. Direct Patch: Strip the strict local JRE packaging rule from root Makefile
+          # This forces gmake package to skip looking for a local jre8-*.tar.xz archive
+          sed -i '' 's/internal_jar jre/internal_jar/g' Makefile
+          sed -i '' 's/internal_jar_trollstore jre/internal_jar_trollstore/g' Makefile
+
+          # 5. Process packaging loops based on target configuration
           if [ "${{ matrix.platform_name }}" == "ios" ]; then
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
