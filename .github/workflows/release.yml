@@ -17,64 +17,49 @@ jobs:
 
     runs-on: macos-15
     steps:
-      - name: Clean Build Workspace Context
+      - name: Clean Workspace Context
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
         run: |
           rm -rf ./* || true
           rm -rf ./.??* || true
           
-      - name: Checkout Codebase Storage
+      - name: Checkout Codebase with All Submodules
         uses: actions/checkout@v4
-
-      - name: Sync Git Submodule References
-        run: |
-          git submodule init
-          git submodule update --recursive
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Provision Homebrew Compilation Tools
         run: |
           brew install make ldid dpkg pkg-config
-          # Force provision the exact Zulu/Temurin 8 runtime path via system casks
           brew install --cask temurin@8
           
-          # Prioritize GNU Make over the generic macOS system framework
+          # Force GNU Make prefix path resolution
           echo "/opt/homebrew/opt/make/libexec/gnubin" >> $GITHUB_PATH
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
-
-      - name: Fetch Remote Framework Dependencies
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: build.yml
-          path: depends
-          workflow_conclusion: success
-          repo: PojavLauncherTeam/android-openjdk-build-multiarch
-          branch: buildjre8
-          name: jre8-ios-aarch64
 
       - name: Compile and Package Application Binary Target
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
           RUNNER: 1
         run: |
-          # 1. Hard-bind the environment path straight to the Homebrew Cask JDK 8 home directory
+          # 1. Bind path explicitly to satisfied Homebrew Cask JDK 8 home
           export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-8.jdk/Contents/Home
           export PATH=$JAVA_HOME/bin:$PATH
           
-          # 2. Build code prerequisites sequentially before passing to the assembly recipe
+          # 2. Build local code prerequisites sequentially
           gmake dep_mg
           gmake assets
           gmake native
           
-          # Fix modern compiler byte stub differences for legacy components
+          # Prevent Java compiler version optimization check crashes
           mkdir -p JavaApp/build/classes/org/lwjgl/glfw/
           echo "" > JavaApp/build/classes/org/lwjgl/glfw/GLFWunctions.class
           
           gmake java
 
-          # 3. Process packaging matrices based on target definitions
+          # 3. Process packaging loops based on target configuration
           if [ "${{ matrix.platform_name }}" == "ios" ]; then
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
