@@ -1,80 +1,40 @@
-name: Release build
+name: Amethyst CI (Custom Build)
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Release build
+    name: Build for ${{ matrix.platform_name }}
+    runs-on: macos-15
     strategy:
+      fail-fast: false
       matrix:
         include:
           - platform: 2
             platform_name: ios
-    
-    runs-on: macos-latest
+
     steps:
-      - name: Remove work folders
-        env:
-          password: ${{ secrets.ELLIE_MINI_SECRET }}
-        run: |
-          echo "before"
-          ls -lah ./
-          echo $password | sudo -S rm -rf ./* || true
-          echo $password | sudo -S rm -rf ./.??* || true
-          echo "after"
-          ls -lah ./
-          
-      - name: Checkout repository
-        uses: actions/checkout@main
-
-      - name: Checkout repository submodules
-        run: git submodule update --init --recursive
-
-      - name: Get gl4es latest commit hash
-        id: gl4es-sha
-        run: echo "::set-output name=sha::$(echo $(git ls-remote https://github.com/PojavLauncherTeam/gl4es-114-extra refs/heads/master | grep -io '^\S*'))"
-        shell: bash
-
-      - name: Cache gl4es
-        uses: actions/cache@main
-        if: false # use gl4es 1.1.5
-        id: gl4es-cache
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
         with:
-          path: gl4es/libs
-          key: gl4es-holy-ios-shared-2-${{ steps.gl4es-sha.outputs.sha }}
+          submodules: recursive
 
-      - name: Get gl4es
-        if: false && steps.gl4es-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@main
+      - name: Initialize Homebrew Cache Staging
+        uses: actions/cache@v4
         with:
-          repository: 'PojavLauncherTeam/gl4es-114-extra'
-          path: 'gl4es'
+          path: |
+            ~/Library/Caches/Homebrew
+            /opt/homebrew/Cellar
+          key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/release.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-
 
-      - name: Build gl4es
-        if: false && steps.gl4es-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        run: |
-          cd gl4es
-          git config --global user.email "github-actions@users.noreply.github.com"
-          git config --global user.name "github-actions"
-          export PATH=/opt/procursus/bin:$PATH
-          wget https://github.com/leetal/ios-cmake/raw/master/ios.toolchain.cmake
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=ios.toolchain.cmake -DDEFAULT_ES=2 \
-            -DNOX11=ON -DNOEGL=OFF -DSTATICLIB=OFF -DPLATFORM=OS64 \
-            -DCMAKE_C_FLAGS=-Wno-error=implicit-function-declaration
-          cmake --build build --config RelWithDebInfo --target GL
-          cp -R lib/libGL.dylib ../Natives/resources/Frameworks/libgl4es_114.dylib
-          
-      - name: Push gl4es
-        if: false && github.event != 'pull_request' && github.ref_name == 'main' && steps.gl4es-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        run: |
-          git add Natives/resources/Frameworks/libgl4es_114.dylib
-          git commit -am "CI: Update gl4es"
-          git push
-
-    
+      - name: Setup Java Native Compiler Development Kit
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Build for ${{ matrix.platform_name }}
         env:
@@ -88,7 +48,7 @@ jobs:
           export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export RUNNER=1
           
-          # 2. Run compile targets sequentially (gmake jre is removed)
+          # 2. Run compile targets sequentially (gmake jre is removed to bypass fragile wildcards)
           gmake dep_mg
           gmake assets
           gmake native
@@ -101,24 +61,15 @@ jobs:
           elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
           else
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
           fi
 
-      - name: Upload regular ipa
-        uses: actions/upload-artifact@main
+      - name: Upload Compiled Distribution Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: net.kdt.pojavlauncher-${{ matrix.platform_name }}.ipa
-          path: artifacts/net.kdt.pojavlauncher-*-${{ matrix.platform_name }}.ipa
-
-      - name: Upload regular tipa
-        uses: actions/upload-artifact@main
-        with:
-          name: net.kdt.pojavlauncher-${{ matrix.platform_name }}.tipa
-          path: artifacts/net.kdt.pojavlauncher-*-${{ matrix.platform_name }}-trollstore.tipa
-
-      - name: Upload PojavLauncher.dSYM
-        uses: actions/upload-artifact@main
-        if: matrix.platform_name == 'ios'
-        with:
-          name: PojavLauncher.dSYM
-          path: artifacts/PojavLauncher.dSYM
+          name: Amethyst-${{ matrix.platform_name }}-Build
+          path: |
+            *.ipa
+            *.tipa
+            *.deb
+            Natives/build/*.dSYM
