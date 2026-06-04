@@ -74,29 +74,13 @@ jobs:
           git commit -am "CI: Update gl4es"
           git push
 
-      - name: Fetch Prebuilt JRE Dependencies
-        run: |
-          # 1. Create the explicit dependency storage track
-          mkdir -p depends
-          
-          # 2. Pull down the authentic Java 8, Java 17, AND Java 21 binaries straight to depends/
-          curl -L -o depends/jre8-arm64-20220811-release.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre8-40df388/jre8-arm64-20220811-release.tar.xz"
-          curl -L -o depends/jre17-arm64-20220817-release.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre17-ca01427/jre17-arm64-20220817-release.tar.xz"
-          curl -L -o depends/jre21-arm64-20231019-release.tar.xz "https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch/releases/download/jre21-5079a49/jre21-arm64-20231019-release.tar.xz"
-          
-          # 3. Mirror the files into fallback staging paths to satisfy all Makefile generation variants
-          mkdir -p JavaApp Natives/build
-          for dir in . JavaApp Natives Natives/build; do
-            cp depends/jre8-arm64-20220811-release.tar.xz "$dir/" || true
-            cp depends/jre17-arm64-20220817-release.tar.xz "$dir/" || true
-            cp depends/jre21-arm64-20231019-release.tar.xz "$dir/" || true
-          done
+    
 
       - name: Build for ${{ matrix.platform_name }}
         env:
           password: ${{ secrets.ELLIE_MINI_SECRET }}
         run: |
-          # Provision system requirements for standard public runners
+          # 1. Provision build tools
           brew install make
           brew install --cask temurin@8
           brew install ldid dpkg pkg-config
@@ -104,21 +88,20 @@ jobs:
           export PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export RUNNER=1
           
-          # Sequential execution loop across main targets
+          # 2. Run compile targets sequentially (gmake jre is removed)
           gmake dep_mg
           gmake assets
           gmake native
           gmake java
-          gmake jre
           
-          # Packaging checks based on matrix parameters
+          # 3. Packaging rules based on matrix target parameters
           if [ "${{ matrix.platform_name }}" == "ios" ]; then
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
           elif [ "${{ matrix.platform_name }}" == "tvos" ]; then
             gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }} TROLLSTORE_JIT_ENT=1
           else
-            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ matrix.platform }}
+            gmake -j$(sysctl -n hw.ncpu) dsym package PLATFORM=${{ platform }}
           fi
 
       - name: Upload regular ipa
